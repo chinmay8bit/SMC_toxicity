@@ -1561,7 +1561,7 @@ def create_position_ids_from_input_ids(input_ids, padding_idx, past_key_values_l
 
     Returns: torch.Tensor
     """
-    # Hanlde one-hot input ids
+    # Handle one-hot input ids
     if input_ids.is_floating_point():
         input_ids = input_ids.argmax(dim=-1)
     # The series of casts and type-conversions here are carefully balanced to both work with ONNX export and XLA.

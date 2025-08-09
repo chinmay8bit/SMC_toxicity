@@ -1,0 +1,18 @@
+hydra:
+  searchpath:
+    - file://mdlm/configs
+
+defaults:
+  - config  # Refers to 'config.yaml' inside 'mdlm/configs'
+  - _self_
+
+eval:
+  checkpoint_path: 'kuleshov-group/mdlm-owt'
+
+backbone: 'hf_dit'
+
+loader: 
+  eval_batch_size: 8
+
+model:
+  length: 100

@@ -58,7 +58,6 @@ class Pipeline:
         batch_p: int = 1,
         phi: int = 1, # number of samples for reward approximation
         tau: float = 1.0, # temperature for taking x0 samples
-        output_type="text",
         proposal_type:str = "locally_optimal",
         use_continuous_formulation: bool = False, # Whether to use a continuous formulation of carry over unmasking
         disable_progress_bar: bool = False,

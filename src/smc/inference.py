@@ -42,30 +42,12 @@ def toxicity_reward_fn(gpt_token_ids):
     return toxicity_scorer.score_token_ids(roberta_token_ids)
 
 
-remdm_schedule = "cosine"
-remdm_remask_strategy = "rescale"
-remdm_eta = 0.00
-ess_threshold = 0.5
-partial_resampling = False
-
-steps = 100
-num_particles = 8
-batch_p = 8
-
-lambda_tempering = True
-if lambda_tempering:
-    lambda_one_at = 100
-    lambdas = torch.cat([torch.linspace(0, 1, lambda_one_at + 1), torch.ones(steps - lambda_one_at)])
-else:
-    lambdas = None
-
-
 @hydra.main(config_path="configs", config_name="pipeline_config")
 def main(config):
     scheduler = ReMDMScheduler(
-        schedule=remdm_schedule,
-        remask_strategy=remdm_remask_strategy,
-        eta=remdm_eta,
+        schedule=config.smc.remdm.schedule,
+        remask_strategy=config.smc.remdm.remask_strategy,
+        eta=config.smc.remdm.eta,
         mask_token_id=50257,
     )
     pipe = Pipeline(config, scheduler, device=device)
@@ -73,19 +55,25 @@ def main(config):
     # Intialize the translation map between GPT tokenizer and the tokenizer used in Roberta toxicity classifier
     initialize_tokenizer_translation_stuff(pipe.model.tokenizer, toxicity_scorer.tokenizer)
     
-    prompt_text = "The movie"
+    if config.smc.lambda_tempering.enabled:
+        lambdas = torch.cat([torch.linspace(0, 1, config.smc.lambda_tempering.one_at + 1), torch.ones(config.smc.num_inference_steps - config.smc.lambda_tempering.one_at)])
+    else:
+        lambdas = None
+    
     samples, text_samples = pipe(
-        prompt_text=prompt_text,
-        resample_fn=lambda log_w: resample(log_w, ess_threshold=ess_threshold, partial=partial_resampling),
+        prompt_text=config.smc.prompt_text,
+        resample_fn=lambda log_w: resample(log_w, ess_threshold=config.smc.resampling.ess_threshold, partial=config.smc.resampling.partial),
         reward_fn=toxicity_reward_fn,
-        num_particles=num_particles,
-        batch_p=batch_p,
-        resample_frequency=10,
-        num_inference_steps=steps,
-        proposal_type="locally_optimal",
-        use_continuous_formulation=True,
-        kl_weight=0.2,
+        num_particles=config.smc.num_particles,
+        batch_p=config.smc.batch_p,
+        resample_frequency=config.smc.resampling.frequency,
+        num_inference_steps=config.smc.num_inference_steps,
+        proposal_type=config.smc.proposal_type,
+        use_continuous_formulation=config.smc.use_continuous_formulation,
+        kl_weight=config.smc.kl_weight,
         lambdas=lambdas,
+        phi=config.smc.phi,
+        tau=config.smc.tau,
     )
     print(samples.shape)
     for text_sample in text_samples:

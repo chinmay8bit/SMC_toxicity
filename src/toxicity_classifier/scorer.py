@@ -2,6 +2,8 @@ import torch
 from transformers import RobertaTokenizer
 from src.toxicity_classifier.modeling_roberta import RobertaForSequenceClassification
 
+MAX_ALLOWED_SEQ_LEN = 512
+
 class ToxicityScorer:
     def __init__(self, label_idx=1, device='cuda'):
         """
@@ -22,6 +24,10 @@ class ToxicityScorer:
         return logits[..., self.label_idx]
     
     def score_token_ids(self, token_ids: torch.Tensor):
+        seq_len = token_ids.size(1)
+        if seq_len > MAX_ALLOWED_SEQ_LEN:
+            print(f"Warning: Sequence length exceeds maximum allowed length. Truncating to {MAX_ALLOWED_SEQ_LEN} tokens.")
+            token_ids = token_ids[:, :MAX_ALLOWED_SEQ_LEN]
         output = self.model(token_ids)
         logits = output.logits.log_softmax(dim=-1)
         return logits[..., self.label_idx]

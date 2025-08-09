@@ -84,3 +84,13 @@ class MDLMDiffusion(Diffusion):
         self.backbone.train()
         self.noise.train()
         return samples
+    
+    def get_logits(self, x, t):
+        sigma_t, _ = self.noise(t)
+        if sigma_t.ndim > 1:
+            sigma_t = sigma_t.squeeze(-1)
+        assert sigma_t.ndim == 1, sigma_t.shape
+        unet_conditioning = sigma_t
+        log_p_x0: torch.Tensor = self.forward(x, unet_conditioning, return_raw_logits=True)
+        log_p_x0[..., self.mask_index]  = -torch.inf # type: ignore
+        return log_p_x0.float()

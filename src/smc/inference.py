@@ -76,10 +76,14 @@ def main(config):
         tau=config.smc.tau,
     )
     print(samples.shape)
-    for text_sample in text_samples:
+    toxicity_scores = torch.zeros(config.smc.num_particles)
+    for i, text_sample in enumerate(text_samples):
         print("Text sample:", text_sample)
-        print("Toxicity score:", toxicity_scorer.score_text(text_sample))
+        toxicity_score = toxicity_scorer.score_text(text_sample)
+        print("Toxicity score:", toxicity_score)
         print('\n\n')
+        toxicity_scores[i] = toxicity_score
+    return text_samples, toxicity_scores
 
 if __name__ == '__main__':
     main()

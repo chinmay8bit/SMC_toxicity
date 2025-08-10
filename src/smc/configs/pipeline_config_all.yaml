@@ -1,0 +1,18 @@
+hydra:
+  searchpath:
+    - file://mdlm/configs
+  run:
+    dir: ./outputs/run_all_${run_all.runs_per_prompt}/${smc.proposal_type}_${smc.num_particles}_${smc.kl_weight}_${smc.resampling.frequency}_${smc.phi}/${now:%Y.%m.%d}/${now:%H%M%S}
+  job:
+    chdir: true
+
+defaults:
+  - base
+  - _self_
+
+smc:
+  prompt_text: null # This is set in runtime
+  
+run_all:
+  prompt_file: "/vol/bitbucket/cp524/dev/SMC_toxicity/evaluation/pplm_discrim_prompts_orig.jsonl"
+  runs_per_prompt: 1

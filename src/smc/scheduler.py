@@ -253,3 +253,52 @@ class ReMDMScheduler(BaseScheduler):
             log_prob_proposal,
             log_prob_diffusion,
         )
+
+"""
+Use this version of remdm scheduler if you want to
+keep the prompt part of the text sample unchanged
+"""
+class ReMDMSchedulerWithPrompt(ReMDMScheduler):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        
+    def set_prompt_length(self, prompt_length: int):
+        """
+        Set the length of the prompt that should not be masked.
+        """
+        self.prompt_length = prompt_length
+        
+    def step(self, latents: torch.Tensor, step: int, logits: torch.Tensor) -> SchedulerStepOutput:
+        sched_out = super().step(
+            latents[:, self.prompt_length:], 
+            step, 
+            logits[:, self.prompt_length:]
+        )
+        new_latents = torch.cat([
+            latents[:, :self.prompt_length],
+            sched_out.new_latents
+        ], dim=1)
+        return SchedulerStepOutput(new_latents)
+    
+    def step_with_approx_guidance(
+        self,
+        latents: torch.Tensor,
+        step: int,
+        logits: torch.Tensor,
+        approx_guidance: torch.Tensor,
+    ) -> SchedulerApproxGuidanceOutput:
+        sched_out = super().step_with_approx_guidance(
+            latents[:, self.prompt_length:], 
+            step, 
+            logits[:, self.prompt_length:], 
+            approx_guidance[:, self.prompt_length:]
+        )
+        new_latents = torch.cat([
+            latents[:, :self.prompt_length],
+            sched_out.new_latents
+        ], dim=1)
+        return SchedulerApproxGuidanceOutput(
+            new_latents,
+            sched_out.log_prob_proposal,
+            sched_out.log_prob_diffusion,
+        )

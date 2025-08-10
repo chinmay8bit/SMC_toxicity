@@ -33,4 +33,4 @@ smc:
     one_at: 100
   proposal_type: "locally_optimal"
   use_continuous_formulation: True
-  prompt_text: "The movie"
+  prompt_text: null # Specify at run time

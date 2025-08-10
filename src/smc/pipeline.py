@@ -74,6 +74,11 @@ class Pipeline:
             assert isinstance(prompt_text, str)
             prompt = self.tokenizer([prompt_text], return_tensors='pt', padding=False)
             prompt_ids = prompt['input_ids'][:, :-1].to(self._execution_device) # type: ignore
+            # Set prompt length in scheduler if supported
+            if hasattr(self.scheduler, 'set_prompt_length'):
+                self.scheduler.set_prompt_length(prompt_ids.shape[1]) # type: ignore
+            else:
+                print("[bold red]Warning:[/bold red] Scheduler does not support setting prompt length. The prompt may be get modified in the text samples.")
         else:
             prompt_ids = None
         

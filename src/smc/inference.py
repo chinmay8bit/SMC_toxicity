@@ -12,7 +12,7 @@ import hydra
 from rich import print
 
 from src.smc.pipeline import Pipeline
-from src.smc.scheduler import ReMDMScheduler
+from src.smc.scheduler import ReMDMScheduler, ReMDMSchedulerWithPrompt
 from src.smc.resampling import resample
 from src.toxicity_classifier.scorer import ToxicityScorer
 from src.tokenizer.utils import create_token_ids_translation_map
@@ -44,7 +44,7 @@ def toxicity_reward_fn(gpt_token_ids):
 
 @hydra.main(config_path="configs", config_name="pipeline_config")
 def main(config):
-    scheduler = ReMDMScheduler(
+    scheduler = ReMDMSchedulerWithPrompt(
         schedule=config.smc.remdm.schedule,
         remask_strategy=config.smc.remdm.remask_strategy,
         eta=config.smc.remdm.eta,

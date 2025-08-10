@@ -1,0 +1,23 @@
+#!/bin/bash
+
+export HF_HOME="/vol/bitbucket/cp524/hf_cache"
+export TRITON_CACHE_DIR="/vol/bitbucket/cp524/triton_cache"
+
+set -ex
+
+python evaluation/mdlm_to_eval_format.py \
+--glob_expression "outputs/*/*/*/*/text_samples.jsonl" \
+--expected_per 1 \
+--prompt_path "/vol/bitbucket/cp524/dev/SMC_toxicity/evaluation/pplm_discrim_prompts_orig.jsonl"
+--max_len 1000
+
+for path in outputs/*/*/*/*/*_gen.jsonl
+do
+    echo $path
+    fname=$(basename $path)
+    echo $fname
+    python evaluation/evaluate.py \
+    --generations_file $path \
+    --metrics ppl#gpt2-xl,cola,dist-n,toxic,toxic_ext \
+    --output_file "${fname}_eval.txt"
+done

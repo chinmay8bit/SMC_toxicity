@@ -16,3 +16,4 @@ smc:
 run_all:
   prompt_file: "/vol/bitbucket/cp524/dev/SMC_toxicity/evaluation/pplm_discrim_prompts_orig.jsonl"
   runs_per_prompt: 1
+  seed: null

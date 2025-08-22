@@ -43,6 +43,8 @@ def fpath_to_data(fpath):
             
 
 path = '../outputs/*/*/*/fk_steering/sample_evaluation/*/*_eval.txt'
+runs_per_prompt = 20
+path = f'outputs/run_all_{runs_per_prompt}/*/*/*/*_eval.txt'
 
 paths = sorted(glob.glob(path))
 exp_names = [x.split('/')[2] for x in paths]

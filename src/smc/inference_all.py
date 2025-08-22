@@ -11,12 +11,17 @@ import torch
 import hydra
 from rich import print
 from tqdm import tqdm
+import lightning
 
 import src.smc.inference as inference
 
 
 @hydra.main(config_path="configs", config_name="pipeline_config_all")
 def main(config):
+    # Set seed
+    if config.run_all.seed is not None:
+        lightning.seed_everything(config.run_all.seed)
+    
     # Read all prompts from the prompt file
     with open(config.run_all.prompt_file, 'r') as f:
         prompts_from_file = [json.loads(l) for l in f]

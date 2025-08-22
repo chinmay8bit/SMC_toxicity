@@ -9,8 +9,8 @@ os.environ["TRITON_CACHE_DIR"] = "/vol/bitbucket/cp524/triton_cache"
 import torch
 import torch.nn.functional as F
 import hydra
-from rich import print
 
+from src.utils.rich_print import rich_print as print
 from src.smc.pipeline import Pipeline
 from src.smc.scheduler import ReMDMScheduler, ReMDMSchedulerWithPrompt
 from src.smc.resampling import resample
@@ -29,6 +29,8 @@ translation_matrix = None
 
 def initialize_tokenizer_translation_stuff(tokenizer1, tokenizer2):
     global translation_map, translation_matrix
+    if translation_matrix is not None: # check if already initialized
+        return
     translation_map = create_token_ids_translation_map(tokenizer1, tokenizer2, synonyms=translation_custom_map)
     C1, C2 = len(tokenizer1), len(tokenizer2)
     translation_matrix = torch.zeros((C1, C2), device=device).float()
@@ -36,14 +38,20 @@ def initialize_tokenizer_translation_stuff(tokenizer1, tokenizer2):
         translation_matrix[old_class, new_class] = 1.0
 
 def toxicity_reward_fn(gpt_token_ids):
-    if not gpt_token_ids.is_floating_point():
-        gpt_token_ids = F.one_hot(gpt_token_ids, num_classes=translation_matrix.shape[0]).float() # type: ignore
+    if isinstance(gpt_token_ids[0], str):
+        scores = [
+            toxicity_scorer.score_text(text) for text in gpt_token_ids
+        ]
+        return torch.tensor(scores, device=device)
     roberta_token_ids = torch.matmul(gpt_token_ids, translation_matrix) # type: ignore
     return toxicity_scorer.score_token_ids(roberta_token_ids)
 
 
 @hydra.main(config_path="configs", config_name="pipeline_config")
 def main(config):
+    # Check model batch size is equal to smc batch size
+    assert config.smc.batch_p == config.loader.eval_batch_size, "Model batch size must be equal to smc batch size"
+    
     scheduler = ReMDMSchedulerWithPrompt(
         schedule=config.smc.remdm.schedule,
         remask_strategy=config.smc.remdm.remask_strategy,

@@ -266,7 +266,8 @@ class Pipeline:
                 tmp_rewards = torch.zeros(latents_batch.size(0), phi, device=self._execution_device)
                 for phi_i in range(phi):
                     sample = F.gumbel_softmax(tmp_logits, tau=tau, hard=True).argmax(dim=-1)
-                    tmp_rewards[:, phi_i] = reward_fn(sample)
+                    text_sample = self.decode_latents(sample)
+                    tmp_rewards[:, phi_i] = reward_fn(text_sample)
                 tmp_rewards = logmeanexp(tmp_rewards * scale_cur, dim=-1) / scale_cur
                 
                 logits[j:j+batch_p] = tmp_logits.detach()
@@ -337,5 +338,8 @@ class Pipeline:
             print('\n\n')
         
         # Decode latents
-        text = self.model.tokenizer.batch_decode(latents)
+        text = self.decode_latents(latents)
         return latents, text
+
+    def decode_latents(self, latents):
+        return self.model.tokenizer.batch_decode(latents)

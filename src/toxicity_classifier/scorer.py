@@ -19,6 +19,10 @@ class ToxicityScorer:
 
     def score_text(self, text):
         token_ids = self.tokenizer.encode(text, return_tensors="pt").to(self.device)
+        seq_len = token_ids.size(1)
+        if seq_len > MAX_ALLOWED_SEQ_LEN:
+            print(f"Warning: Sequence length exceeds maximum allowed length. Truncating to {MAX_ALLOWED_SEQ_LEN} tokens.")
+            token_ids = token_ids[:, :MAX_ALLOWED_SEQ_LEN]
         output = self.model(token_ids)
         logits = output.logits.log_softmax(dim=-1)
         return logits[..., self.label_idx]

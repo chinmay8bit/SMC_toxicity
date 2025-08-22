@@ -158,7 +158,7 @@ class ReMDMScheduler(BaseScheduler):
             logits_z_t_neq_m,
             logits_z_t_eq_m,
         )
-        assert torch.allclose(torch.exp(p_theta_logits).sum(dim=-1), torch.ones(B, L, device=logits.device)), (torch.exp(p_theta_logits).sum(dim=-1) - torch.ones(B, L, device=logits.device)).abs().max()
+        assert torch.allclose(torch.exp(p_theta_logits).sum(dim=-1), torch.ones(1, device=logits.device)), (torch.exp(p_theta_logits).sum(dim=-1) - torch.ones(1, device=logits.device)).abs().max()
         diffusion_dist = torch.distributions.Categorical(logits=p_theta_logits) # type: ignore
         new_latents = diffusion_dist.sample()
         print("Unmasked:", (new_latents != self.mask_token_id).sum(dim=1))
@@ -214,10 +214,10 @@ class ReMDMScheduler(BaseScheduler):
             logits_z_t_neq_m,
             logits_z_t_eq_m,
         )
-        assert torch.allclose(torch.exp(p_theta_logits).sum(dim=-1), torch.ones(B, L, device=logits.device))
+        assert torch.allclose(torch.exp(p_theta_logits).sum(dim=-1), torch.ones(1, device=logits.device))
         
         proposal_logits = (p_theta_logits + approx_guidance).log_softmax(dim=-1)
-        assert torch.allclose(torch.exp(proposal_logits).sum(dim=-1), torch.ones(B, L, device=logits.device))
+        assert torch.allclose(torch.exp(proposal_logits).sum(dim=-1), torch.ones(1, device=logits.device))
         
         # modify proposal logits to have the same mask schedule as the original logits
         # proposal_logits[..., :self.mask_token_id] += (
@@ -261,6 +261,7 @@ keep the prompt part of the text sample unchanged
 class ReMDMSchedulerWithPrompt(ReMDMScheduler):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        self.prompt_length = 0
         
     def set_prompt_length(self, prompt_length: int):
         """
@@ -269,6 +270,8 @@ class ReMDMSchedulerWithPrompt(ReMDMScheduler):
         self.prompt_length = prompt_length
         
     def step(self, latents: torch.Tensor, step: int, logits: torch.Tensor) -> SchedulerStepOutput:
+        if self.prompt_length == 0:
+            return super().step(latents, step, logits)
         sched_out = super().step(
             latents[:, self.prompt_length:], 
             step, 
@@ -287,6 +290,13 @@ class ReMDMSchedulerWithPrompt(ReMDMScheduler):
         logits: torch.Tensor,
         approx_guidance: torch.Tensor,
     ) -> SchedulerApproxGuidanceOutput:
+        if self.prompt_length == 0:
+            return super().step_with_approx_guidance(
+                latents,
+                step,
+                logits,
+                approx_guidance
+            )
         sched_out = super().step_with_approx_guidance(
             latents[:, self.prompt_length:], 
             step, 

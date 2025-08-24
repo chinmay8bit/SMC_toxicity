@@ -26,12 +26,18 @@ class ToxicityScorer:
         output = self.model(token_ids)
         logits = output.logits.log_softmax(dim=-1)
         return logits[..., self.label_idx]
+
+    def score_texts(self, texts):
+        token_ids = self.tokenizer(texts, return_tensors="pt", padding=True).to(self.device)
+        # The attention mask allows the model to ignore the padding tokens
+        # So we can get the same output as calling score_text in a loop :)
+        return self.score_token_ids(token_ids.input_ids, attention_mask=token_ids.attention_mask)
     
-    def score_token_ids(self, token_ids: torch.Tensor):
+    def score_token_ids(self, token_ids: torch.Tensor, attention_mask=None):
         seq_len = token_ids.size(1)
         if seq_len > MAX_ALLOWED_SEQ_LEN:
             print(f"Warning: Sequence length exceeds maximum allowed length. Truncating to {MAX_ALLOWED_SEQ_LEN} tokens.")
             token_ids = token_ids[:, :MAX_ALLOWED_SEQ_LEN]
-        output = self.model(token_ids)
+        output = self.model(token_ids, attention_mask=attention_mask)
         logits = output.logits.log_softmax(dim=-1)
         return logits[..., self.label_idx]

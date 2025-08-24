@@ -6,6 +6,7 @@ import torch.nn.functional as F
 from tqdm import tqdm
 from omegaconf import DictConfig
 from rich import print
+from peft import PeftModel
 
 from mdlm import dataloader
 from src.mdlm_diffusion import MDLMDiffusion
@@ -39,7 +40,17 @@ class Pipeline:
     def __init__(self, config: DictConfig, scheduler: BaseScheduler, device, dtype=torch.float) -> None:
         self.config = config
         self.tokenizer = dataloader.get_tokenizer(config)
-        self.model = _load_from_checkpoint(self.config, self.tokenizer)
+        
+        # Load model
+        self.model = _load_from_checkpoint(self.config, self.tokenizer) # Pre-trained model
+        if self.config.ft_model.ckpt_path:
+            if self.config.ft_model.lora:
+                self.model.backbone = PeftModel.from_pretrained(self.model.backbone, self.config.ft_model.ckpt_path)
+            else:
+                self.model.load_state_dict(torch.load(self.config.ft_model.ckpt_path))
+            print(f"Loaded fine-tuned model from {self.config.ft_model.ckpt_path}")
+        self.model.eval()
+        
         self._execution_device = self.model.device
         self.scheduler = scheduler
         self.model_dtype = dtype

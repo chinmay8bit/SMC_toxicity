@@ -1,6 +1,7 @@
 import itertools
 
 import torch
+import torch.nn.functional as F
 from rich import print
 
 from mdlm.diffusion import Diffusion
@@ -22,7 +23,6 @@ class MDLMDiffusion(Diffusion):
         if prompt_text is not None:
             assert isinstance(prompt_text, str)
             prompt = self.tokenizer([prompt_text], return_tensors='pt', padding=False)
-            print(prompt)
             prompt_ids = prompt['input_ids'][:, :-1].to(self.device) # type: ignore
         else:
             prompt_ids = None
@@ -94,3 +94,52 @@ class MDLMDiffusion(Diffusion):
         log_p_x0: torch.Tensor = self.forward(x, unet_conditioning, return_raw_logits=True)
         log_p_x0[..., self.mask_index]  = -torch.inf # type: ignore
         return log_p_x0.float()
+
+    def _sample_step(self, x, t, dt):
+        sigma_t, _ = self.noise(t)
+        sigma_s, _ = self.noise(t - dt)
+        if sigma_t.ndim > 1:
+            sigma_t = sigma_t.squeeze(-1)
+        if sigma_s.ndim > 1:
+            sigma_s = sigma_s.squeeze(-1)
+        assert sigma_t.ndim == 1, sigma_t.shape
+        assert sigma_s.ndim == 1, sigma_s.shape
+        move_chance_t = 1 - torch.exp(-sigma_t) # t
+        move_chance_s = 1 - torch.exp(-sigma_s)
+        move_chance_t = move_chance_t[:, None, None]
+        move_chance_s = move_chance_s[:, None, None]
+        unet_conditioning = sigma_t
+        log_p_x0 = self.forward(x, unet_conditioning).float()
+        assert move_chance_t.ndim == log_p_x0.ndim
+        p_x0 = log_p_x0.softmax(dim=-1)
+        assert torch.allclose(p_x0.sum(dim=-1), torch.tensor(1.0, device=p_x0.device), atol=1e-6), f"p_x0 off by {(p_x0.sum(dim=-1) - 1.0).abs().max()}"
+        q_xs = p_x0 * (move_chance_t - move_chance_s) + F.one_hot(x, num_classes=self.vocab_size) * move_chance_s
+        q_xs /= move_chance_t
+        assert torch.allclose(q_xs.sum(dim=-1), torch.tensor(1.0, device=q_xs.device), atol=1e-6), f"q_xs off by {(q_xs.sum(dim=-1) - 1.0).abs().max()}"
+        return q_xs, p_x0
+
+    def sample(self, num_steps=None, eps=1e-5, prompt_text=None):
+        batch_size_per_gpu = self.config.loader.eval_batch_size
+        if num_steps is None:
+            num_steps = self.config.sampling.steps
+            
+        if prompt_text is not None:
+            assert isinstance(prompt_text, str)
+            prompt = self.tokenizer([prompt_text], return_tensors='pt', padding=False)
+            prompt_ids = prompt['input_ids'][:, :-1].to(self.device) # type: ignore
+        else:
+            prompt_ids = None
+            
+        z_t = self._sample_prior(batch_size_per_gpu, self.config.model.length, prompt_ids=prompt_ids).to( # type: ignore
+            self.device
+        )
+        timesteps = torch.linspace(1, eps, num_steps + 1, device=self.device)
+        dt = (1 - eps) / num_steps
+        for i in range(num_steps, 0, -1):
+            t = timesteps[num_steps - i] * torch.ones(z_t.shape[0], 1, device=self.device)
+            with torch.no_grad():
+                z_s_given_zt = self._sample_step(z_t, t, dt)[0]
+                dist = torch.distributions.Categorical(probs=z_s_given_zt)
+                z_s = dist.sample()
+            z_t = z_s
+        return z_t

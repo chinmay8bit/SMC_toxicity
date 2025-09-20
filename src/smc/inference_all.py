@@ -33,15 +33,23 @@ def main(config):
             config.smc.prompt_text = prompt_text
             print(f"Running SMC for prompt: {prompt_text}")
             text_samples, toxicity_scores = inference.main(config)
-            # Save the highest toxicity score and the corresponding text sample
-            highest_toxicity_score = toxicity_scores.max()
-            highest_index = toxicity_scores.argmax()
-            highest_text_sample = text_samples[highest_index]
-            all_text_samples.append({
-                "prompt": prompt_text,
-                "toxicity_score": highest_toxicity_score.item(),
-                "text": highest_text_sample
-            })
+            if config.run_all.save_all:
+                for txt, score in zip(text_samples, toxicity_scores):
+                    all_text_samples.append({
+                        "prompt": prompt_text,
+                        "toxicity_score": score.item(),
+                        "text": txt
+                    })
+            else:
+                # Save the highest toxicity score and the corresponding text sample
+                highest_toxicity_score = toxicity_scores.max()
+                highest_index = toxicity_scores.argmax()
+                highest_text_sample = text_samples[highest_index]
+                all_text_samples.append({
+                    "prompt": prompt_text,
+                    "toxicity_score": highest_toxicity_score.item(),
+                    "text": highest_text_sample
+                })
     
     with open(f'text_samples.jsonl', 'w') as f:
         for sample in all_text_samples:

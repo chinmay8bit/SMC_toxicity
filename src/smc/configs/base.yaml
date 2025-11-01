@@ -34,3 +34,7 @@ smc:
   proposal_type: "locally_optimal"
   use_continuous_formulation: True
   prompt_text: null # Specify at run time
+
+ft_model:
+  lora: False
+  ckpt_path: null # Specify at run time

@@ -210,3 +210,9 @@ __marimo__/
 # Custom
 outputs/
 test*
+
+model_weights_final/
+model_weights/
+lora_weights/
+slurm*.out
+wandb/
